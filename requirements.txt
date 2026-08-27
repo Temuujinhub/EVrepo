@@ -8,4 +8,7 @@ psycopg2-binary==2.9.12
 pydantic-settings==2.14.2
 httpx==0.28.1
 cryptography==44.0.1
-websockets==13.1
+# websockets >=14 шаардлагатай: uvicorn-ийн шинэ (sansio) WS хэрэгжүүлэлт болон
+# симуляторын additional_headers API хоёулаа тэндээс хойш. 13.x дээр OCPP
+# холболт тогтохгүй (2026-08-27, шинэ сервер дээр илэрсэн).
+websockets==15.0.1

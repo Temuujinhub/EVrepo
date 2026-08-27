@@ -45,9 +45,15 @@ class ChargePointSim:
 
     async def connect(self):
         token = base64.b64encode(f"{self.cp_id}:{self.password}".encode()).decode()
-        self.ws = await websockets.connect(
-            self.url, subprotocols=["ocpp1.6"],
-            additional_headers={"Authorization": f"Basic {token}"})
+        headers = {"Authorization": f"Basic {token}"}
+        # websockets 14+ дээр additional_headers, 13.x дээр extra_headers —
+        # аль ч хувилбар дээр ажиллана
+        try:
+            self.ws = await websockets.connect(
+                self.url, subprotocols=["ocpp1.6"], additional_headers=headers)
+        except TypeError:
+            self.ws = await websockets.connect(
+                self.url, subprotocols=["ocpp1.6"], extra_headers=headers)
         print(f"[sim] холбогдлоо: {self.url}")
 
     async def call(self, action: str, payload: dict) -> dict:

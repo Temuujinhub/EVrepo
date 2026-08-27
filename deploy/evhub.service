@@ -1,0 +1,24 @@
+[Unit]
+Description=EV Hub - OCPP 1.6J WSS server
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=evhub
+Group=evhub
+WorkingDirectory=/opt/evhub
+EnvironmentFile=/opt/evhub/.env
+ExecStart=/opt/evhub/venv/bin/uvicorn hub.main:app --host 127.0.0.1 --port 8100 --no-access-log
+Restart=always
+RestartSec=3
+# Цэнэглэгчийн холболт тасрахад чухал: restart ХОВОР байх ёстой (§3.1) —
+# autodeploy зөвхөн hub/ өөрчлөгдсөн үед л restart хийдэг.
+LimitNOFILE=65536
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

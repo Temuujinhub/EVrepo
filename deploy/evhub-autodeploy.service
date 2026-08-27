@@ -1,0 +1,7 @@
+[Unit]
+Description=EV Hub autodeploy (git pull from GitHub)
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/bash /opt/evhub/deploy/autodeploy.sh

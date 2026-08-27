@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# evctl — EV Hub-ын CLI deploy/удирдлага (дотоод сүлжээний машинаас).
+#
+# Windows дээр Git Bash / WSL-ээс ажиллана:
+#     ./evctl install    # шинэ сервер дээр анхны суулгац
+#     ./evctl deploy     # main-ы сүүлийн кодыг серверт татуулж restart
+#     ./evctl status     # systemd + healthz + холбогдсон цэнэглэгчид
+#     ./evctl logs       # амьд лог (journalctl -f)
+#     ./evctl restart    # hub restart
+#     ./evctl db         # psql shell
+#     ./evctl chargers   # цэнэглэгчдийн жагсаалт (internal API)
+#     ./evctl sim CP01   # серверийн симулятороор турших
+#
+# Тохиргоо (орчны хувьсагчаар дарж болно):
+EVHUB_SSH="${EVHUB_SSH:-wssuser@172.16.100.32}"
+EVHUB_URL="${EVHUB_URL:-http://172.16.100.32:8080}"
+APP_DIR=/opt/evhub
+set -euo pipefail
+
+cmd="${1:-help}"; shift || true
+
+run() { ssh -o ConnectTimeout=8 "$EVHUB_SSH" "$@"; }
+sudo_run() { run "sudo bash -c '$*'"; }
+
+api_key() {
+    run "sudo grep '^EVHUB_INTERNAL_API_KEY=' $APP_DIR/.env | cut -d= -f2"
+}
+
+case "$cmd" in
+install)
+    echo "→ $EVHUB_SSH дээр анхны суулгац..."
+    sudo_run "test -d $APP_DIR/.git || git clone https://github.com/Temuujinhub/EVrepo.git $APP_DIR"
+    sudo_run "cd $APP_DIR && bash deploy/install.sh"
+    ;;
+deploy)
+    echo "→ origin/main руу татуулж байна..."
+    sudo_run "bash $APP_DIR/deploy/autodeploy.sh"
+    echo "→ health:"
+    run "curl -s http://127.0.0.1:8080/healthz"; echo
+    ;;
+status)
+    run "systemctl status evhub --no-pager -l | head -12" || true
+    echo "── healthz ──"
+    run "curl -s http://127.0.0.1:8080/healthz"; echo
+    KEY=$(api_key)
+    echo "── internal/health ──"
+    run "curl -s -H 'Authorization: Bearer $KEY' http://127.0.0.1:8080/internal/health"; echo
+    ;;
+logs)
+    run -t "sudo journalctl -u evhub -f -n 100"
+    ;;
+restart)
+    sudo_run "systemctl restart evhub"
+    echo "restart хийгдлээ"
+    ;;
+db)
+    run -t "sudo -u postgres psql evhub"
+    ;;
+chargers)
+    KEY=$(api_key)
+    run "curl -s -H 'Authorization: Bearer $KEY' http://127.0.0.1:8080/internal/chargers" \
+        | python3 -m json.tool 2>/dev/null || true
+    ;;
+sim)
+    CP="${1:?cp_id өгнө үү (ж: ./evctl sim SIM01)}"
+    KEY=$(run "sudo grep '^EVHUB_PROVISION_PASSWORD=' $APP_DIR/.env | cut -d= -f2")
+    run -t "cd $APP_DIR && venv/bin/python simulator/cp_sim.py \
+        --url ws://127.0.0.1:8080/ocpp/1.6/$CP --cp-id $CP --password $KEY --auto"
+    ;;
+help|*)
+    grep '^#' "$0" | sed 's/^# \{0,1\}//' | head -16
+    ;;
+esac

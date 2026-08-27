@@ -1,0 +1,10 @@
+[Unit]
+Description=EV Hub autodeploy timer (2 мин тутам)
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=2min
+RandomizedDelaySec=20
+
+[Install]
+WantedBy=timers.target
